@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Wordle Clone Multimodo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  
+  <!-- Barra de navegación superior completa -->
+  <div class="top-nav-full">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">PANDLE</h1>
+        <div class="global-rating-badge" title="Puntuación Global Ponderada (Máx 5000)">
+          <span class="rating-icon">⚡</span>
+          <span id="header-global-rating">1500</span>
+          <span id="header-tier-name" class="tier-pill">Iniciado</span>
+        </div>
+      </div>
+
+      <!-- Botón de Menú Móvil -->
+      <button id="mobile-menu-toggle" class="icon-btn mobile-only-btn" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+        </svg>
+      </button>
+
+      <div class="header-controls" id="header-controls">
+        <div class="control-group">
+          <label for="mode-select" class="control-label">Modo:</label>
+          <select id="mode-select" aria-label="Modo de juego">
+            <option value="classic" selected>Clásico</option>
+            <option value="time">Contrarreloj</option>
+            <option value="marathon">Maratón</option>
+            <option value="scrambled">Desordenado</option>
+            <option value="invisible">Invisible</option>
+            <option value="daily">Diario</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="length-select" class="control-label">Letras:</label>
+          <select id="length-select" aria-label="Longitud de palabra">
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="difficulty-select" class="control-label">Dificultad:</label>
+          <select id="difficulty-select" aria-label="Dificultad e intentos">
+            <option value="easy">Fácil (8)</option>
+            <option value="normal" selected>Normal (6)</option>
+            <option value="hard">Difícil (5)</option>
+            <option value="extreme">Extremo (4)</option>
+          </select>
+        </div>
+
+        <button id="stats-btn" class="icon-btn" title="Ver estadísticas" aria-label="Estadísticas">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Panel de información de Modos (Tiempo / Contadores) -->
+    <div id="game-info-panel" class="game-info-panel hidden">
+      <div id="timer-display" class="info-badge hidden">00:00</div>
+      <div id="marathon-counter" class="info-badge hidden">Palabras: 0</div>
+    </div>
+  </div>
+
+  <div class="game-wrapper">
+    <!-- Contenedor de notificaciones flotantes -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Tablero de juego -->
+    <main class="board-container">
+      <div id="board" class="board"></div>
+    </main>
+
+    <!-- Teclado virtual -->
+    <footer class="keyboard-container">
+      <div id="keyboard" class="keyboard"></div>
+    </footer>
+  </div>
+
+  <!-- Modal de Fin de Juego / Estadísticas Individuales -->
+  <div id="stats-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button id="modal-close" class="modal-close-btn" aria-label="Cerrar">&times;</button>
+      <h2 id="modal-title">ESTADÍSTICAS</h2>
+
+      <!-- Selector de Modo para Visualización Individual -->
+      <div class="stats-mode-filter-bar">
+        <div class="filter-item">
+          <label for="stats-filter-mode">Modo:</label>
+          <select id="stats-filter-mode">
+            <option value="classic">Clásico</option>
+            <option value="time">Contrarreloj</option>
+            <option value="marathon">Maratón</option>
+            <option value="scrambled">Desord.</option>
+            <option value="invisible">Invisible</option>
+            <option value="daily">Diario</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label for="stats-filter-length">Letras:</label>
+          <select id="stats-filter-length">
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+      </div>
+
+      <p id="secret-word-reveal" class="secret-word-reveal hidden"></p>
+
+      <!-- Panel de Puntuación & Ratings -->
+      <div class="rating-overview-card">
+        <div class="rating-card-main">
+          <span class="rating-card-title">Puntuación Global (Ponderada)</span>
+          <div class="rating-card-score">
+            <span id="modal-global-score">1500</span><span class="max-sub">/5000</span>
+          </div>
+          <span id="modal-tier-badge" class="tier-badge">Iniciado</span>
+        </div>
+        <div class="rating-sub-grid">
+          <div class="rating-sub-item">
+            <span class="sub-label">Rating en este Modo</span>
+            <span id="stat-mode-rating" class="sub-value">1500</span>
+          </div>
+          <div class="rating-sub-item">
+            <span class="sub-label">Desempeño Partida</span>
+            <span id="stat-game-score" class="sub-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span id="stat-played" class="stat-num">0</span>
+          <span class="stat-label">Jugadas</span>
+        </div>
+        <div class="stat-box">
+          <span id="stat-win-pct" class="stat-num">0%</span>
+          <span class="stat-label">% Victorias</span>
+        </div>
+        <div class="stat-box">
+          <span id="stat-current-streak" class="stat-num">0</span>
+          <span class="stat-label">Racha act.</span>
+        </div>
+        <div class="stat-box">
+          <span id="stat-max-streak" class="stat-num">0</span>
+          <span class="stat-label">Mejor racha</span>
+        </div>
+        <div class="stat-box efficiency-box">
+          <span id="stat-game-eff" class="stat-num">—</span>
+          <span class="stat-label">Efic. partida</span>
+        </div>
+        <div class="stat-box efficiency-box">
+          <span id="stat-total-eff" class="stat-num">0%</span>
+          <span class="stat-label">Efic. media</span>
+        </div>
+      </div>
+
+      <!-- Sección colapsable: Distribución de intentos -->
+      <details class="stats-accordion">
+        <summary class="accordion-header">
+          <span>DISTRIBUCIÓN DE INTENTOS</span>
+          <span class="accordion-icon">▾</span>
+        </summary>
+        <div class="accordion-body">
+          <div id="guess-distribution" class="guess-distribution"></div>
+        </div>
+      </details>
+
+      <!-- Sección colapsable: Letras más utilizadas -->
+      <details class="stats-accordion">
+        <summary class="accordion-header">
+          <span>TOP 10 LETRAS MÁS USADAS</span>
+          <span class="accordion-icon">▾</span>
+        </summary>
+        <div class="accordion-body">
+          <div id="letters-bar-chart" class="letters-bar-chart"></div>
+        </div>
+      </details>
+
+      <div class="modal-actions">
+        <button id="play-again-btn" class="primary-btn">Jugar de nuevo</button>
+      </div>
+
+      <!-- Zona para borrar todos los datos -->
+      <div class="modal-danger-zone">
+        <button id="reset-data-btn" class="reset-data-btn" title="Borrar todo el historial y estadísticas">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          Borrar todos los datos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal personalizado de mensajes y confirmaciones -->
+  <div id="confirm-modal" class="modal-overlay hidden">
+    <div class="confirm-modal-content">
+      <p id="confirm-modal-message" class="confirm-modal-text"></p>
+      <div class="confirm-modal-actions">
+        <button id="confirm-modal-cancel" class="modal-btn-cancel">Cancelar</button>
+        <button id="confirm-modal-ok" class="modal-btn-confirm">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="words/words4.js"></script>
+  <script src="words/words5.js"></script>
+  <script src="words/words6.js"></script>
+  <script src="words/words7.js"></script>
+  <script src="words.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
