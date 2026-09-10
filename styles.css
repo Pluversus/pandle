@@ -410,6 +410,7 @@ html, body {
 .reset-data-btn { background: transparent; border: 1px solid rgba(231, 76, 60, 0.35); color: #e74c3c; padding: 6px 14px; font-size: 0.74rem; font-weight: 600; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .reset-data-btn:hover { background-color: rgba(231, 76, 60, 0.12); border-color: #e74c3c; }
 
+.tier-dirt { background-color: #723700; color: #ffffff; }
 .tier-silver { background-color: #7f8c8d; color: #ffffff; }
 .tier-gold { background-color: #d4ac0d; color: #000000; }
 .tier-diamond { background-color: #2980b9; color: #ffffff; }

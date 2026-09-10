@@ -38,7 +38,8 @@ let wordLength = 5;
 let currentDifficulty = "normal";
 let maxAttempts = DIFFICULTY_ATTEMPTS[currentDifficulty];
 
-let wordList = [];
+let targetWords = [];
+let validWordsSet = new Set();
 let targetWord = "";
 let currentRow = 0;
 let currentTile = 0;
@@ -201,24 +202,39 @@ async function getOrInitModeStats(mode, length) {
   return modeData;
 }
 
-async function calculateGlobalWeightedRating() {
+async function getGlobalRatingStatus() {
   const allModes = await dbGetAll("mode_stats");
-  if (!allModes || allModes.length === 0) return BASE_RATING;
+  const REQUIRED_MODES = 3;
+  const REQUIRED_GAMES_PER_MODE = 5;
 
+  const modeStatsMap = {};
   let totalWeightedRating = 0;
   let totalWeight = 0;
 
-  for (const mode of allModes) {
-    if (mode.played > 0) {
-      // Ponderar dando mayor peso a modos más jugados (tope en 10 partidas) para estabilizar la media global
-      const weight = Math.min(mode.played, 10);
-      totalWeightedRating += (mode.rating || BASE_RATING) * weight;
+  for (const item of allModes) {
+    if (item.played > 0) {
+      modeStatsMap[item.gameMode] = (modeStatsMap[item.gameMode] || 0) + item.played;
+
+      const weight = Math.min(item.played, 10);
+      totalWeightedRating += (item.rating || BASE_RATING) * weight;
       totalWeight += weight;
     }
   }
 
-  if (totalWeight === 0) return BASE_RATING;
-  return Math.round(Math.min(MAX_RATING, Math.max(1, totalWeightedRating / totalWeight)));
+  const qualifiedModesCount = Object.values(modeStatsMap).filter(
+    (played) => played >= REQUIRED_GAMES_PER_MODE
+  ).length;
+
+  const isQualified = qualifiedModesCount >= REQUIRED_MODES;
+  const score = totalWeight === 0 ? BASE_RATING : Math.round(Math.min(MAX_RATING, Math.max(1, totalWeightedRating / totalWeight)));
+
+  return {
+    isQualified,
+    qualifiedModesCount,
+    requiredModes: REQUIRED_MODES,
+    requiredGames: REQUIRED_GAMES_PER_MODE,
+    score
+  };
 }
 
 function getRatingTier(rating) {
@@ -226,13 +242,22 @@ function getRatingTier(rating) {
   if (rating >= 3400) return { name: "Maestro", class: "tier-master" };
   if (rating >= 2600) return { name: "Avanzado", class: "tier-diamond" };
   if (rating >= 1900) return { name: "Intermedio", class: "tier-gold" };
+  if (rating <= 1000) return { name: "Malo", class: "tier-dirt" };
   return { name: "Iniciado", class: "tier-silver" };
 }
 
 async function updateGlobalHeaderBadge() {
-  const globalScore = await calculateGlobalWeightedRating();
-  headerGlobalRating.textContent = globalScore;
-  const tier = getRatingTier(globalScore);
+  const status = await getGlobalRatingStatus();
+
+  if (!status.isQualified) {
+    headerGlobalRating.textContent = `Sin rango`;
+    headerTierName.textContent = "Bloqueado";
+    headerTierName.className = "tier-pill tier-silver";
+    return;
+  }
+
+  headerGlobalRating.textContent = status.score;
+  const tier = getRatingTier(status.score);
   headerTierName.textContent = tier.name;
   headerTierName.className = `tier-pill ${tier.class}`;
 }
@@ -557,7 +582,13 @@ function initResizeObserver() {
 }
 
 function loadWords(length) {
-  wordList = (typeof getWordList === "function") ? getWordList(length) : getFallbackWords(length);
+  const lists = (typeof getWordList === "function") ? getWordList(length) : [[], []];
+  const guessWords = lists[0] || [];
+  const answerWords = lists[1] || [];
+
+  targetWords = answerWords.length > 0 ? answerWords : guessWords;
+  
+  validWordsSet = new Set([...guessWords, ...targetWords].map(w => w.toLowerCase()));
 }
 
 function startNewGame() {
@@ -578,7 +609,7 @@ function startNewGame() {
   updateDifficultyOptions();
 
   loadWords(wordLength);
-  if (!wordList || wordList.length === 0) return showToast("Error: No hay palabras");
+  if (!targetWords || targetWords.length === 0) return showToast("Error: No hay palabras");
 
   if (currentMode === 'daily') {
     const today = new Date().toDateString();
@@ -590,9 +621,9 @@ function startNewGame() {
       buildKeyboard();
       return;
     }
-    targetWord = wordList[getDailyWordIndex(wordList.length)].toLowerCase();
+    targetWord = targetWords[getDailyWordIndex(targetWords.length)].toLowerCase();
   } else {
-    targetWord = wordList[Math.floor(Math.random() * wordList.length)].toLowerCase();
+    targetWord = targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase();
   }
 
   if (currentMode === 'time' || currentMode === 'marathon') {
@@ -624,7 +655,7 @@ function startMarathonNextWord() {
   currentGuess = "";
   currentMatchGuesses = [];
   matchEvaluationsHistory = [];
-  targetWord = wordList[Math.floor(Math.random() * wordList.length)].toLowerCase();
+  targetWord = targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase();
   buildBoard();
   adjustTileSizes();
   buildKeyboard();
@@ -752,7 +783,7 @@ function deleteLetter() {
 
 async function submitGuess() {
   if (currentGuess.length !== wordLength) { shakeRow(); return showToast("Letras insuficientes"); }
-  if (!wordList.includes(currentGuess)) { shakeRow(); return showToast("Palabra no válida"); }
+  if (!validWordsSet.has(currentGuess)) { shakeRow(); return showToast("Palabra no válida"); }
 
   isAnimating = true;
   currentMatchGuesses.push(currentGuess);
@@ -982,12 +1013,27 @@ async function updateStatsModalView() {
     secretWordReveal.classList.add("hidden");
   }
 
-  const globalScore = await calculateGlobalWeightedRating();
-  document.getElementById("modal-global-score").textContent = globalScore;
-  const tier = getRatingTier(globalScore);
+  const globalStatus = await getGlobalRatingStatus();
+  const scoreEl = document.getElementById("modal-global-score");
+  const maxSubEl = document.querySelector(".max-sub");
   const badgeEl = document.getElementById("modal-tier-badge");
-  badgeEl.textContent = tier.name;
-  badgeEl.className = `tier-badge ${tier.class}`;
+
+  if (!globalStatus.isQualified) {
+    scoreEl.innerHTML = `
+      <div style="font-size: 0.8rem; font-weight: 600; line-height: 1.4; color: var(--color-text-muted); margin: 6px 0;">
+        Juega al menos ${globalStatus.requiredGames} partidas en ${globalStatus.requiredModes} modos distintos.<br>
+        <span style="color: #f1c40f; font-weight: 800;">Progreso: ${globalStatus.qualifiedModesCount}/${globalStatus.requiredModes} modos completados</span>
+      </div>`;
+    if (maxSubEl) maxSubEl.style.display = "none";
+    badgeEl.textContent = "Sin Clasificar";
+    badgeEl.className = "tier-badge tier-silver";
+  } else {
+    scoreEl.textContent = globalStatus.score;
+    if (maxSubEl) maxSubEl.style.display = "inline";
+    const tier = getRatingTier(globalStatus.score);
+    badgeEl.textContent = tier.name;
+    badgeEl.className = `tier-badge ${tier.class}`;
+  }
 
   document.getElementById("stat-mode-rating").textContent = modeStats.rating || BASE_RATING;
   document.getElementById("stat-game-score").textContent = (isMatchingActiveGame && lastGameScore !== null) ? `${lastGameScore} pts` : "—";
