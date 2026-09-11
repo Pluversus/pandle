@@ -1,1 +1,1 @@
-﻿const endpoint = "https://panchessco.space/api/"
+﻿const endpoint = "https://api.panchessco.space/"
