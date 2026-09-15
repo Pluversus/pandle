@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PANDLE Multimodo
  */
 
@@ -162,6 +162,14 @@ function dbClear(storeName) {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+}
+
+// ============================================================================
+// BASE DE DATOS (api)
+// ============================================================================
+
+function isOnline() {
+  return ping();
 }
 
 // ============================================================================
@@ -434,18 +442,30 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
   }
 
   const historyEntry = {
-    timestamp: Date.now(), dateISO: now, modeId: mode.modeId,
-    wordLength, difficulty: currentDifficulty, gameMode: currentMode,
+    timestamp: Date.now(),
+    dateISO: now,
+    modeId: mode.modeId,
+    wordLength,
+    difficulty: currentDifficulty,
+    gameMode: currentMode,
     targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : targetWord,
-    guesses: [...currentMatchGuesses], isWin,
+    guesses: [...currentMatchGuesses],
+    isWin,
     attemptsUsed: isWin ? attemptsUsed : null,
-    efficiency, matchPerformanceScore: targetScore, newRating
+    efficiency,
+    matchPerformanceScore: targetScore,
+    newRating
   };
 
   await Promise.all([
     dbPut("mode_stats", mode),
-    dbPut("game_history", historyEntry)
+    dbPut("game_history", historyEntry),
+    postResult(historyEntry, "fitz")
   ]);
+
+  console.log(historyEntry)
+
+
   await updateGlobalHeaderBadge();
 }
 
