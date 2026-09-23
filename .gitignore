@@ -1,2 +1,4 @@
 .env
 .vs/
+secret.json
+node_modules/
