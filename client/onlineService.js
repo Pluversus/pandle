@@ -1,9 +1,9 @@
-﻿const endpoint = "http://localhost:3000/";
+﻿const endpoint = "https://api.panchessco.space/";
 const userEndpoint = endpoint + "users/";
 const resultsEndpoint = endpoint + "results/";
 const modestatsEndpoint = endpoint + "modestats/";
 const authEndpoint = endpoint + "auth/";
-var userToken = "";
+userToken = "";
 
 /** 
  * @description Obtener un usuario de la base de datos, por la api.
@@ -20,8 +20,6 @@ async function getUser(id)
           Authorization: "Bearer " + userToken
         }
       });
-
-      console.log("statusCode:", res.status);
 
       if (!res.ok) rejects(null);
 
@@ -48,12 +46,11 @@ async function getMe() {
           Authorization: "Bearer " + userToken
         }
       });
-
-      console.log("statusCode:", res.status);
-
+      
       if (!res.ok) {
         rejects(null);
         userToken = "";
+        me = undefined;
       };
 
       let data = await res.json();
@@ -77,8 +74,6 @@ async function getAllResults()
         }
       });
 
-      console.log("statusCode:", res.status);
-
       if (!res.ok) rejects(null);
 
       let data = await res.json();
@@ -100,8 +95,6 @@ async function getAllModestats() {
           Authorization: "Bearer " + userToken
         }
       });
-
-      console.log("statusCode:", res.status);
 
       if (!res.ok) rejects(null);
 
@@ -202,6 +195,7 @@ async function login(credentials = { username: "a", password: "a" }) {
   let json = await response.json();
 
   userToken = json.token;
+  localStorage.setItem("userToken", userToken);
 
   return await userToken;
 }
@@ -219,7 +213,7 @@ async function register(credentials = { username: "a", password: "a" }) {
     })
   })
 
-  return await response.json();
+  return response;
 }
 
 async function clearOnlineData() {

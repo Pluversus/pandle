@@ -1,4 +1,6 @@
-.env
+﻿.env
 .vs/
 secret.json
 node_modules/
+api-cf.yml
+server.bat
