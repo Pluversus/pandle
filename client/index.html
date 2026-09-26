@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  
+
   <!-- Barra de navegación superior completa -->
   <div class="top-nav-full">
     <header class="header">
@@ -23,7 +23,7 @@
       <!-- Botón de Menú Móvil -->
       <button id="mobile-menu-toggle" class="icon-btn mobile-only-btn" aria-label="Abrir menú">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
         </svg>
       </button>
 
@@ -62,8 +62,15 @@
 
         <button id="stats-btn" class="icon-btn" title="Ver estadísticas" aria-label="Estadísticas">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
+            <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z" />
           </svg>
+        </button>
+
+        <button id="login-btn" class="icon-btn" title="Iniciar Sesión" aria-label="Login">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" id="login-icon">
+            <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z" />
+          </svg>
+          <span id="account"> Signin </span>
         </button>
       </div>
     </header>
@@ -88,6 +95,61 @@
     <footer class="keyboard-container">
       <div id="keyboard" class="keyboard"></div>
     </footer>
+  </div>
+
+  <!-- Modal de LogIn-->
+  <div id="login-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button id="login-modal-close" class="modal-close-btn" aria-label="Cerrar">&times;</button>
+      <!-- login -->
+      <div class="login-page" id="login-content">
+        <div class="login-content">
+          <div class="login-inputs">
+            <label for="username">Username  <input id="username" type="text" name="username" placeholder="Juu" /> </label><br />
+            <label for="password">Password  <input id="password" type="password" name="password" placeholder="******" /> </label><br />
+            <div class="error hidden" id="login-error"></div>
+          </div>
+        </div>
+        <button id="submit-login-btn" class="modal-btn-confirm">
+          Login
+        </button>
+
+        <button id="toggle-register" class="modal-btn-confirm reg-toggle">
+          Crear Cuenta
+        </button>
+      </div>
+
+      <!-- Register -->
+      <div class="login-page" id="register-content">
+        <div class="login-content">
+          <div class="login-inputs">
+            <label for="username">Username  <input id="reg-username" type="text" name="username" placeholder="Kyu" /> </label><br />
+            <label for="password">Password  <input id="reg-password" type="password" name="password" placeholder="******" min="" /> </label><br />
+            <label for="password">Confirm  <input id="reg-confirm-password" type="password" name="password" placeholder="******" /> </label><br />
+            <div class="error hidden" id="register-error"></div>
+          </div>
+        </div>
+        <button id="submit-register-btn" class="modal-btn-confirm">
+          Crear
+        </button>
+        <button id="toggle-register" class="modal-btn-confirm reg-toggle">
+          Tengo Una Cuenta
+        </button>
+      </div>
+      <!-- Account -->
+      <div class="login-page" id="account-content">
+        <div class="login-content">
+          <div class="login-inputs">
+            <label for="username">Username  <span id="account-username-modal"> </span> </label><br />
+            <label for="password">Cambiar Contraseña  <input id="password" type="password" name="password" placeholder="******" /> </label><br />
+            <label for="password">Confirm  <input id="password" type="password" name="password" placeholder="******" /> </label><br />
+          </div>
+        </div>
+        <button id="logout-btn" class="modal-btn-confirm">
+          Log Out
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal de Fin de Juego / Estadísticas Individuales -->
@@ -200,7 +262,7 @@
       <div class="modal-danger-zone">
         <button id="reset-data-btn" class="reset-data-btn" title="Borrar todo el historial y estadísticas">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
           </svg>
           Borrar todos los datos
         </button>
@@ -229,5 +291,6 @@
   <script src="words/words7valid.js"></script>
   <script src="words.js"></script>
   <script src="script.js"></script>
+  <script src="onlineService.js"></script>
 </body>
 </html>

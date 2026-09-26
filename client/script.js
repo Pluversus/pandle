@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PANDLE Multimodo
  */
 
@@ -24,7 +24,7 @@ const MAX_RATING = 5000;
 
 const KEYBOARD_LAYOUT = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ'], //confía, la ñ será graciosa
   ['Enter', 'z', 'x', 'c', 'v', 'b', 'n', 'm', 'Backspace']
 ];
 
@@ -32,6 +32,7 @@ const KEYBOARD_LAYOUT = [
 // ESTADO GLOBAL DE LA APLICACIÓN
 // ============================================================================
 let dbInstance = null;
+let modalOpen = false;
 
 let currentMode = "classic";
 let wordLength = 5;
@@ -67,6 +68,18 @@ let statsViewingLength = 5;
 let isCurrentlyViewingEndGame = false;
 let isCurrentlyViewingWin = false;
 
+// variables pal online
+let isAPIOnline = false;
+
+let accountState = {
+  OFFLINE: 0,
+  LOGGEDIN: 1,
+  REGISTERING: 2
+}
+
+let accountStatus = accountState.OFFLINE;
+let me = undefined;
+
 // Elementos del DOM
 const boardElement = document.getElementById("board");
 const keyboardElement = document.getElementById("keyboard");
@@ -79,8 +92,31 @@ const statsBtn = document.getElementById("stats-btn");
 const modalCloseBtn = document.getElementById("modal-close");
 const playAgainBtn = document.getElementById("play-again-btn");
 const resetDataBtn = document.getElementById("reset-data-btn");
+const loginIcon = document.getElementById("login-icon");
+const modalAccountUsername = document.getElementById("account-username-modal");
+const openLoginBtn = document.getElementById("login-btn");
+const accountText = document.getElementById("account");
+const closeLoginBtn = document.getElementById("login-modal-close");
 const secretWordReveal = document.getElementById("secret-word-reveal");
 const modalTitle = document.getElementById("modal-title");
+
+const loginModal = document.getElementById("login-modal");
+const submitLoginBtn = document.getElementById("submit-login-btn");
+const loginUsername = document.getElementById("username");
+const loginPassword = document.getElementById("password");
+const registerUsername = document.getElementById("reg-username");
+const registerPassword = document.getElementById("reg-password");
+const registerPasswordConfirmation = document.getElementById("reg-confirm-password");
+
+const loginErrorBox = document.getElementById("login-error");
+const registerErrorBox = document.getElementById("register-error");
+
+const submitRegisterBtn = document.getElementById("submit-register-btn");
+const logoutBtn = document.getElementById("logout-btn")
+
+const loginContent = document.getElementById("login-content");
+const registerContent = document.getElementById("register-content");
+const accountContent = document.getElementById("account-content");
 
 const statsFilterMode = document.getElementById("stats-filter-mode");
 const statsFilterLength = document.getElementById("stats-filter-length");
@@ -165,6 +201,149 @@ function dbClear(storeName) {
 }
 
 // ============================================================================
+// BASE DE DATOS (api)
+// ============================================================================
+
+/**
+ * @description ping al server a ver si sigue vivo
+ * @returns boolean
+ */
+async function isOnline() {
+  try {
+    await ping()
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function sessionRoutine() {
+  let t = localStorage.userToken;
+
+  if (t) {
+    userToken = t;
+    me = await getMe();
+    accountStatus = accountState.LOGGEDIN;
+
+    checkAccountState();
+  }
+}
+
+function updateAccountText() {
+  accountText.textContent = me != undefined ? me.user.username : "Signin";
+  modalAccountUsername.textContent = me != undefined ? me.user.username : "n/a";
+}
+
+function offlineRoutine()
+{
+  if (isAPIOnline) {
+    openLoginBtn.addEventListener("click", () => openLoginModal());
+    updateAccountText();
+    loginIcon.innerHTML =
+      `
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
+      `
+  } else {
+    openLoginBtn.removeEventListener("click", () => openLoginModal());
+    accountText.textContent = "Offline";
+    loginIcon.innerHTML =
+      `
+      <path d="M12 3 1.8 20.5h20.4L12 3zm0 5.5c.6 0 1 .4 1 1v4.5c0 .6-.4 1-1 1s-1-.4-1-1V9.5c0-.6.4-1 1-1zm0 9.5a1.1 1.1 0 1 1 0-2.2 1.1 1.1 0 0 1 0 2.2z"/>
+      `
+  }
+}
+
+// ============================================================================
+// Gestion de Cuentas (api)
+// ============================================================================
+
+async function submitLogin() {
+  let username = loginUsername.value; 
+  let password = loginPassword.value; 
+
+  try {
+    await login({
+      username: username,
+      password: password
+    })
+
+    accountStatus = accountState.LOGGEDIN;
+
+    closeLoginModal();
+  } catch (e) {
+    switch (e) {
+      case 401:
+        // contraseña equivocada
+        await showError("Contraseña Incorrecta");
+        break;
+      case 404:
+        await showError("Usuario no Encontrado");
+        // usuario no existe
+        break;
+      default:
+        showError("No tengo la menor idea de lo que pasó.")
+        break;
+    }
+  }
+
+  try {
+    me = await getMe();
+  } catch (e) {
+    console.log
+  }
+
+  updateAccountText();
+}
+
+async function submitLogout() {
+  userToken = ""; 
+  localStorage.userToken = null;
+  accountStatus = accountState.OFFLINE;
+
+  try {
+    me = await getMe(); // es vital que esto falle
+  } catch (e) {
+    console.log
+  }
+
+  updateAccountText();
+  closeLoginModal();
+}
+
+async function submitRegister() {
+  let username = registerUsername.value;
+  let password = registerPassword.value;
+  let confPassword = registerPasswordConfirmation.value;
+
+  if (confPassword != password) showError("Las Contraseñas No Coinciden", registerErrorBox);
+  if (password.username < 3) showError("Elige Un Nombre Más Largo", registerErrorBox);
+  if (password.length < 6) showError("Elige Contraseña Más Larga", registerErrorBox);
+
+  await register({
+    username: username,
+    password: password
+  }).then(async (res) => {
+    if (res.ok) { 
+      await login({
+        username: username,
+        password: password
+      })
+    }
+  })
+}
+
+async function showError(text, errorBox = loginErrorBox) {
+  errorBox.innerHTML = text;
+
+  if (!errorBox.innerHTML || errorBox.innerHTML == "") {
+    errorBox.classList.add("hidden")
+  } else {
+    errorBox.classList.remove("hidden")
+  }
+}
+
+
+// ============================================================================
 // GESTIÓN DE RATING Y ESTADÍSTICAS
 // ============================================================================
 function getModeId(mode, length) {
@@ -193,9 +372,19 @@ function createDefaultModeStats(mode, length) {
 async function getOrInitModeStats(mode, length) {
   const modeId = getModeId(mode, length);
   let modeData = await dbGet("mode_stats", modeId);
+
+  if (isAPIOnline) {
+    try {
+      modeData = await getModestats(modeId) || modeData;
+    } catch (e) {
+      console.log
+    }
+  }
+
   if (!modeData) {
     modeData = createDefaultModeStats(mode, length);
     await dbPut("mode_stats", modeData);
+    putModeStat(modeData, me != undefined ? me.user.username : "err");
   } else if (typeof modeData.rating === "undefined") {
     modeData.rating = BASE_RATING;
   }
@@ -203,7 +392,26 @@ async function getOrInitModeStats(mode, length) {
 }
 
 async function getGlobalRatingStatus() {
-  const allModes = await dbGetAll("mode_stats");
+  let localModes = await dbGetAll("mode_stats");
+  let allModes; // se supone que es una const pero lo dejaré mutable para no hacer tremendo termanario [«a» es cierto grok ? si : no;]
+  let onlineModes;
+
+  if (isAPIOnline && me != undefined) {
+    try {
+      onlineModes = (await getAllModestats()).stats.map(x => x.modestat);
+      allModes = [
+        ...new Map(
+          [...localModes, ...onlineModes].map(x => [x.modeId, x])
+        ).values()
+      ]
+    } catch (e) {
+      allModes = localModes;
+      console.log
+    }
+  } else {
+    allModes = localModes;
+  }
+
   const REQUIRED_MODES = 3;
   const REQUIRED_GAMES_PER_MODE = 5;
 
@@ -264,6 +472,7 @@ async function updateGlobalHeaderBadge() {
 
 async function recordLettersUsedInMode(guess) {
   const mode = await getOrInitModeStats(currentMode, wordLength);
+
   if (!mode.letterCounts) mode.letterCounts = {};
   for (const char of guess) {
     mode.letterCounts[char] = (mode.letterCounts[char] || 0) + 1;
@@ -434,18 +643,32 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
   }
 
   const historyEntry = {
-    timestamp: Date.now(), dateISO: now, modeId: mode.modeId,
-    wordLength, difficulty: currentDifficulty, gameMode: currentMode,
+    timestamp: Date.now(),
+    dateISO: now,
+    modeId: mode.modeId,
+    wordLength,
+    difficulty: currentDifficulty,
+    gameMode: currentMode,
     targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : targetWord,
-    guesses: [...currentMatchGuesses], isWin,
+    guesses: [...currentMatchGuesses],
+    isWin,
     attemptsUsed: isWin ? attemptsUsed : null,
-    efficiency, matchPerformanceScore: targetScore, newRating
+    efficiency,
+    matchPerformanceScore: targetScore,
+    newRating
   };
 
-  await Promise.all([
-    dbPut("mode_stats", mode),
-    dbPut("game_history", historyEntry)
-  ]);
+  try {
+    await Promise.all([
+      dbPut("mode_stats", mode),
+      dbPut("game_history", historyEntry),
+      postResult(historyEntry, me != undefined ? me.user.username : "n/a"),
+      putModeStat(mode, me != undefined ? me.user.username : "n/a")
+    ]);
+  } catch (e) {
+    console.log
+  }
+
   await updateGlobalHeaderBadge();
 }
 
@@ -456,9 +679,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await initDB();
     await updateGlobalHeaderBadge();
+    isAPIOnline = await isOnline();
+
+    await sessionRoutine();
   } catch (e) {
     console.error("Error IndexedDB:", e);
   }
+  offlineRoutine();
   initListeners();
   initResizeObserver();
   startNewGame();
@@ -477,9 +704,21 @@ function initListeners() {
     });
   }
 
+  document.querySelectorAll(".reg-toggle").forEach(button => {
+    button.addEventListener("click", () => { toggleRegister(), openLoginModal() });
+  });
+
+  submitRegisterBtn.addEventListener("click", () => { submitRegister() })
+
   window.addEventListener("keydown", handlePhysicalKeyboard);
   statsBtn.addEventListener("click", () => openStatsModal(false, false));
-  modalCloseBtn.addEventListener("click", () => statsModal.classList.add("hidden"));
+  closeLoginBtn.addEventListener("click", () => closeLoginModal());
+  submitLoginBtn.addEventListener("click", () => submitLogin());
+  logoutBtn.addEventListener("click", () => submitLogout());
+  modalCloseBtn.addEventListener("click", () => {
+    statsModal.classList.add("hidden");
+    modalOpen = true;
+  });
   playAgainBtn.addEventListener("click", () => {
     statsModal.classList.add("hidden");
     startNewGame();
@@ -487,6 +726,8 @@ function initListeners() {
   resetDataBtn.addEventListener("click", handleResetAllData);
   statsModal.addEventListener("click", (e) => {
     if (e.target === statsModal) statsModal.classList.add("hidden");
+
+    modalOpen = false;
   });
 
   statsFilterMode.addEventListener("change", async (e) => { statsViewingMode = e.target.value; await updateStatsModalView(); });
@@ -564,7 +805,11 @@ async function handleResetAllData() {
   if (!confirmed) return;
 
   try {
-    await Promise.all([dbClear("mode_stats"), dbClear("game_history")]);
+    await Promise.all([
+      dbClear("mode_stats"),
+      dbClear("game_history"),
+      clearOnlineData()
+    ]);
     resetVolatileGameData();
     await updateGlobalHeaderBadge();
     await updateStatsModalView();
@@ -744,7 +989,8 @@ function buildKeyboard() {
 }
 
 function handlePhysicalKeyboard(e) {
-  if (isGameOver || isAnimating || e.ctrlKey || e.altKey || e.metaKey) return;
+  offlineRoutine(); // meh, haré el chequeo en cada letra por mis cojones
+  if (isGameOver || isAnimating || e.ctrlKey || e.altKey || e.metaKey || modalOpen) return;
   if (e.key === "Enter") handleInput("Enter");
   else if (e.key === "Backspace") handleInput("Backspace");
   else if (/^[a-zA-ZñÑ]$/.test(e.key)) handleInput(e.key.toLowerCase());
@@ -956,9 +1202,71 @@ function showToast(message) {
 }
 
 // ============================================================================
+// La mierda de login
+// ============================================================================
+
+async function openLoginModal() {
+  if (!isAPIOnline) return;
+  checkAccountState();
+
+  loginModal.classList.remove("hidden");
+  modalOpen = true;
+}
+
+async function closeLoginModal() {
+  loginModal.classList.add("hidden");
+
+  clearFields();
+
+  modalOpen = false;
+}
+
+function clearFields() {
+  loginUsername.value = "";
+  loginPassword.value = "";
+
+  registerUsername.value = "";
+  registerPassword.value = "";
+  registerPasswordConfirmation.value = "";
+}
+async function checkAccountState() {
+  switch (accountStatus) {
+    case accountState.LOGGEDIN:
+      accountContent.classList.remove("hidden");
+      loginContent.classList.add("hidden");
+      registerContent.classList.add("hidden");
+      break
+    case accountState.REGISTERING:
+      accountContent.classList.add("hidden");
+      loginContent.classList.add("hidden");
+      registerContent.classList.remove("hidden");
+      break;
+    default:
+      accountContent.classList.add("hidden");
+      loginContent.classList.remove("hidden");
+      registerContent.classList.add("hidden");
+      break;
+  }
+}
+
+async function toggleRegister() {
+  clearFields();
+
+  switch (accountStatus) {
+    case accountState.REGISTERING:
+      accountStatus = accountState.OFFLINE;
+      break;
+    default:
+      accountStatus = accountState.REGISTERING;
+      break;
+  }
+}
+
+// ============================================================================
 // VISOR DE ESTADÍSTICAS
 // ============================================================================
 async function openStatsModal(isEndGame = false, isWin = false) {
+  modalOpen = true;
   isCurrentlyViewingEndGame = isEndGame;
   isCurrentlyViewingWin = isWin;
 

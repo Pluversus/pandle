@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --color-bg: #121213;
   --color-surface: #1a1a1b;
   --color-border: #3a3a3c;
@@ -379,7 +379,7 @@ html, body {
 /* Acordeón Estadísticas */
 .stats-accordion { margin-bottom: 10px; border: 1px solid var(--color-border); border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); overflow: hidden; text-align: left; }
 .accordion-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; font-size: 0.74rem; font-weight: 700; color: var(--color-text-muted); list-style: none; user-select: none; }
-.accordion-header::-webkit-details-marker { display: none; }
+
 .accordion-header:hover { background-color: rgba(255, 255, 255, 0.05); color: var(--color-text); }
 .accordion-icon { font-size: 0.95rem; line-height: 1; transition: transform 0.2s ease; }
 .stats-accordion[open] .accordion-icon { transform: rotate(180deg); }
@@ -524,4 +524,41 @@ html, body {
 
 .modal-btn-confirm:hover, .modal-btn-cancel:hover {
   opacity: 0.85;
+}
+
+.error {
+  background: transparent;
+  border: 1px solid rgba(231, 76, 60, 0.35);
+  color: #e74c3c;
+  padding: 6px 14px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 5px;
+  align-items: center;
+  gap: 6px;
+}
+
+.error.hidden {
+  display: none
+}
+
+.login-content{
+  padding: 1rem;
+}
+
+.login-page.hidden {
+  display: none
+}
+
+.login-inputs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-inputs label {
+  width: 70%;
+  display: grid;
+  grid-template-columns: 40% 50%;
+  justify-content: center;
 }
