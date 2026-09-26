@@ -319,17 +319,17 @@ async function submitRegister() {
   if (password.username < 3) showError("Elige Un Nombre Más Largo", registerErrorBox);
   if (password.length < 6) showError("Elige Contraseña Más Larga", registerErrorBox);
 
-  await register({
+  let res = await register({
     username: username,
     password: password
-  }).then(async (res) => {
-    if (res.ok) { 
-      await login({
+  })
+
+  if (res.ok) await login({
         username: username,
         password: password
-      })
-    }
   })
+
+  closeLoginModal();
 }
 
 async function showError(text, errorBox = loginErrorBox) {

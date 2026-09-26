@@ -52,7 +52,9 @@ const results = express.Router();
 const modestats = express.Router();
 const auth = express.Router();
 
-app.use(cors());
+app.use(cors({
+  origin: "https://pluversus.github.io"
+}));
 app.use(express.json());
 app.use("/users", users);
 app.use("/results", results);
@@ -265,7 +267,7 @@ auth.post("/login", async (req, res) => {
   try {
     user = await DB.findOneUser(username);
   } catch (e) {
-    res.status(404).json({
+    return res.status(404).json({
       message: "User not found.",
       token: ""
     })
