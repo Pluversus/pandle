@@ -70,7 +70,7 @@
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" id="login-icon">
             <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z" />
           </svg>
-          <span id="account"> Signin </span>
+          <span id="account"> SignIn </span>
         </button>
       </div>
     </header>
@@ -105,7 +105,7 @@
       <div class="login-page" id="login-content">
         <div class="login-content">
           <div class="login-inputs">
-            <label for="username">Username  <input id="username" type="text" name="username" placeholder="Juu" /> </label><br />
+            <label for="username">Username  <input id="username" type="text" name="username" placeholder="Juan" /> </label><br />
             <label for="password">Password  <input id="password" type="password" name="password" placeholder="******" /> </label><br />
             <div class="error hidden" id="login-error"></div>
           </div>
@@ -113,27 +113,21 @@
         <button id="submit-login-btn" class="modal-btn-confirm">
           Login
         </button>
-
-        <button id="toggle-register" class="modal-btn-confirm reg-toggle">
-          Crear Cuenta
-        </button>
+        <!-- TODO: add register button -->
       </div>
 
       <!-- Register -->
       <div class="login-page" id="register-content">
         <div class="login-content">
           <div class="login-inputs">
-            <label for="username">Username  <input id="reg-username" type="text" name="username" placeholder="Kyu" /> </label><br />
-            <label for="password">Password  <input id="reg-password" type="password" name="password" placeholder="******" min="" /> </label><br />
+            <label for="username">Username  <input id="reg-username" type="text" name="username" placeholder="Juan" /> </label><br />
+            <label for="password">Password  <input id="reg-password" type="password" name="password" placeholder="******" /> </label><br />
             <label for="password">Confirm  <input id="reg-confirm-password" type="password" name="password" placeholder="******" /> </label><br />
             <div class="error hidden" id="register-error"></div>
           </div>
         </div>
         <button id="submit-register-btn" class="modal-btn-confirm">
           Crear
-        </button>
-        <button id="toggle-register" class="modal-btn-confirm reg-toggle">
-          Tengo Una Cuenta
         </button>
       </div>
       <!-- Account -->
