@@ -46,14 +46,17 @@ async function getMe() {
           Authorization: "Bearer " + userToken
         }
       });
-      
+
+      var data;
+
       if (!res.ok) {
         rejects(null);
         userToken = "";
         me = undefined;
-      };
-
-      let data = await res.json();
+      } else {
+        data = await res.json();
+        me = data;
+      }
 
       resolve(data);
     } catch (e) {

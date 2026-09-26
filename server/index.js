@@ -53,7 +53,10 @@ const modestats = express.Router();
 const auth = express.Router();
 
 app.use(cors({
-  origin: "https://pluversus.github.io"
+  origin: [
+    "https://pluversus.github.io",
+    "http://localhost:8080"
+  ]
 }));
 app.use(express.json());
 app.use("/users", users);
