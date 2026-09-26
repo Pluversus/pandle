@@ -220,11 +220,10 @@ async function isOnline() {
 async function sessionRoutine() {
   let t = localStorage.userToken;
 
-  if (t) {
+  if (t != null) {
     userToken = t;
-    me = await getMe();
-    accountStatus = accountState.LOGGEDIN;
 
+    getMe();
     checkAccountState();
   }
 }
@@ -287,7 +286,7 @@ async function submitLogin() {
   }
 
   try {
-    me = await getMe();
+    getMe();
   } catch (e) {
     console.log
   }
@@ -297,11 +296,11 @@ async function submitLogin() {
 
 async function submitLogout() {
   userToken = ""; 
-  localStorage.userToken = null;
+  localStorage.removeItem("userToken");
   accountStatus = accountState.OFFLINE;
 
   try {
-    me = await getMe(); // es vital que esto falle
+    getMe(); // es vital que esto falle
   } catch (e) {
     console.log
   }
@@ -315,20 +314,27 @@ async function submitRegister() {
   let password = registerPassword.value;
   let confPassword = registerPasswordConfirmation.value;
 
-  if (confPassword != password) showError("Las Contraseñas No Coinciden", registerErrorBox);
-  if (password.username < 3) showError("Elige Un Nombre Más Largo", registerErrorBox);
-  if (password.length < 6) showError("Elige Contraseña Más Larga", registerErrorBox);
-
-  let res = await register({
+  let credentials = {
     username: username,
     password: password
-  })
+  }
 
-  if (res.ok) await login({
-        username: username,
-        password: password
-  })
+  if (confPassword != password) return showError("Las Contraseñas No Coinciden", registerErrorBox);
+  if (password.username < 3) return showError("Elige Un Nombre Más Largo", registerErrorBox);
+  if (password.length < 6) return showError("Elige Contraseña Más Larga", registerErrorBox);
 
+  let res = await register(credentials)
+
+  console.log(res, res.ok)
+
+  if (res.ok) await login(credentials);
+
+
+  await getMe();
+  accountStatus = accountState.LOGGEDIN;
+
+
+  updateAccountText();
   closeLoginModal();
 }
 
