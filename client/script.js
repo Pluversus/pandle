@@ -6,11 +6,11 @@
 // CONFIGURACIÓN Y CONSTANTES
 // ============================================================================
 const DB_NAME = "PandleAppDB";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 const DIFFICULTY_ATTEMPTS = { easy: 8, normal: 6, hard: 5, extreme: 4 };
 
-const DIFFICULTY_SCORE_MULTIPLIER = { easy: 0.5, normal: 1.0, hard: 1.5, extreme: 2.0 };
+const DIFFICULTY_SCORE_MULTIPLIER = { easy: 0.67, normal: 1.0, hard: 1.22, extreme: 1.32 };
 
 const TIME_LIMITS = {
   easy: 10 * 60,
@@ -65,7 +65,6 @@ let totalMarathonEfficiency = 0;
 // Variables Visor Modal
 let statsViewingMode = "classic";
 let statsViewingLength = 5;
-let statsViewingDifficulty = "normal";
 let isCurrentlyViewingEndGame = false;
 let isCurrentlyViewingWin = false;
 
@@ -321,19 +320,18 @@ async function showError(text, errorBox = loginErrorBox) {
 // ============================================================================
 // GESTIÓN DE RATING Y ESTADÍSTICAS
 // ============================================================================
-function getModeId(mode, length, diff) {
-  return `${mode}_${length}_${diff}`;
+function getModeId(mode, length) {
+  return `${mode}_${length}`;
 }
 
-function createDefaultModeStats(mode, length, diff) {
+function createDefaultModeStats(mode, length) {
   const dist = {};
   for (let i = 1; i <= 12; i++) dist[i] = 0;
   
   return {
-    modeId: getModeId(mode, length, diff),
+    modeId: getModeId(mode, length),
     gameMode: mode,
     wordLength: parseInt(length, 10),
-    difficulty: diff,
     played: 0,
     won: 0,
     currentStreak: 0,
@@ -345,8 +343,8 @@ function createDefaultModeStats(mode, length, diff) {
   };
 }
 
-async function getOrInitModeStats(mode, length, diff) {
-  const modeId = getModeId(mode, length, diff);
+async function getOrInitModeStats(mode, length) {
+  const modeId = getModeId(mode, length);
   let modeData = await dbGet("mode_stats", modeId);
 
   if (isAPIOnline) {
@@ -356,7 +354,7 @@ async function getOrInitModeStats(mode, length, diff) {
   }
 
   if (!modeData) {
-    modeData = createDefaultModeStats(mode, length, diff);
+    modeData = createDefaultModeStats(mode, length);
     await dbPut("mode_stats", modeData);
     putModeStat(modeData, me != undefined ? me.user.username : "err");
   } else if (typeof modeData.rating === "undefined") {
@@ -390,7 +388,7 @@ async function getGlobalRatingStatus() {
   let totalWeight = 0;
 
   for (const item of allModes) {
-    if (item.played >= 0) { // Now counting specific Mode ID (Mode + Length + Diff)
+    if (item.played >= 0) { 
       modeStatsMap[item.modeId] = (modeStatsMap[item.modeId] || 0) + item.played;
 
       if(item.played > 0) {
@@ -437,7 +435,7 @@ async function updateGlobalHeaderBadge() {
 }
 
 async function recordLettersUsedInMode(guess) {
-  const mode = await getOrInitModeStats(currentMode, wordLength, currentDifficulty);
+  const mode = await getOrInitModeStats(currentMode, wordLength);
 
   if (!mode.letterCounts) mode.letterCounts = {};
   for (const char of guess) {
@@ -587,7 +585,7 @@ function calculateBaseMatchScore(isWin, attemptsUsed, efficiency, timeSpent) {
 
 async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = null) {
   const now = new Date().toISOString();
-  const mode = await getOrInitModeStats(currentMode, wordLength, currentDifficulty);
+  const mode = await getOrInitModeStats(currentMode, wordLength);
   
   let timeSpent = (currentMode === 'time' || currentMode === 'marathon') ? TIME_LIMITS[currentDifficulty] - timeLeft : 0;
   
@@ -631,13 +629,11 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
   try {
     await Promise.all([
       dbPut("mode_stats", mode),
-      dbPut("game_history", historyEntry),
-      postResult(historyEntry, me != undefined ? me.user.username : "n/a"),
-      putModeStat(mode, me != undefined ? me.user.username : "n/a")
+      dbPut("game_history", historyEntry)
     ]);
-  } catch (e) {
-    console.log
-  }
+    postResult(historyEntry, me != undefined ? me.user.username : "n/a");
+    putModeStat(mode, me != undefined ? me.user.username : "n/a");
+  } catch (e) { console.log }
 
   await updateGlobalHeaderBadge();
 }
@@ -691,27 +687,6 @@ function initListeners() {
   statsFilterMode.addEventListener("change", async (e) => { statsViewingMode = e.target.value; await updateStatsModalView(); });
   statsFilterLength.addEventListener("change", async (e) => { statsViewingLength = parseInt(e.target.value, 10); await updateStatsModalView(); });
 
-  // Inyectar Filtro de Dificultad Dinámico al Modal
-  if (!document.getElementById("stats-filter-difficulty") && statsFilterLength) {
-      const diffSelect = document.createElement("select");
-      diffSelect.id = "stats-filter-difficulty";
-      diffSelect.className = "stats-filter"; 
-      diffSelect.style.marginLeft = "10px";
-      const diffs = { easy: "Fácil", normal: "Normal", hard: "Difícil", extreme: "Extremo" };
-      for (let [k, v] of Object.entries(diffs)) {
-          let opt = document.createElement("option");
-          opt.value = k;
-          opt.textContent = v;
-          if (k === currentDifficulty) opt.selected = true;
-          diffSelect.appendChild(opt);
-      }
-      statsFilterLength.parentNode.insertBefore(diffSelect, statsFilterLength.nextSibling);
-      diffSelect.addEventListener("change", async (e) => {
-          statsViewingDifficulty = e.target.value;
-          await updateStatsModalView();
-      });
-  }
-  
   window.addEventListener("resize", () => { window.requestAnimationFrame(adjustTileSizes); });
 }
 
@@ -1241,13 +1216,9 @@ async function openStatsModal(isEndGame = false, isWin = false) {
 
   statsViewingMode = currentMode;
   statsViewingLength = wordLength;
-  statsViewingDifficulty = currentDifficulty;
 
   statsFilterMode.value = statsViewingMode;
   statsFilterLength.value = String(statsViewingLength);
-  
-  const diffFilter = document.getElementById("stats-filter-difficulty");
-  if(diffFilter) diffFilter.value = statsViewingDifficulty;
 
   await updateStatsModalView();
   statsModal.classList.remove("hidden");
@@ -1280,8 +1251,8 @@ function showConfirmDialog(message, showCancel = true) {
 }
 
 async function updateStatsModalView() {
-  const modeStats = await getOrInitModeStats(statsViewingMode, statsViewingLength, statsViewingDifficulty);
-  const isMatchingActiveGame = (statsViewingMode === currentMode && statsViewingLength === wordLength && statsViewingDifficulty === currentDifficulty);
+  const modeStats = await getOrInitModeStats(statsViewingMode, statsViewingLength);
+  const isMatchingActiveGame = (statsViewingMode === currentMode && statsViewingLength === wordLength);
 
   if (isCurrentlyViewingEndGame && isMatchingActiveGame) {
     modalTitle.textContent = isCurrentlyViewingWin ? "¡FELICITACIONES!" : "FIN DEL JUEGO";
