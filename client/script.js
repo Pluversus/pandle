@@ -1,12 +1,12 @@
 ﻿/**
- * PANDLE Multimodo
+ * PANDLE
  */
 
 // ============================================================================
 // CONFIGURACIÓN Y CONSTANTES
 // ============================================================================
 const DB_NAME = "PandleAppDB";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const DIFFICULTY_ATTEMPTS = { easy: 8, normal: 6, hard: 5, extreme: 4 };
 
@@ -65,6 +65,7 @@ let totalMarathonEfficiency = 0;
 // Variables Visor Modal
 let statsViewingMode = "classic";
 let statsViewingLength = 5;
+let statsViewingDifficulty = "normal";
 let isCurrentlyViewingEndGame = false;
 let isCurrentlyViewingWin = false;
 
@@ -137,7 +138,6 @@ function initDB() {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      // Borramos el almacén anterior si existe al actualizar de versión, ya que la clave principal cambió
       if (event.oldVersion < DB_VERSION) {
         if (db.objectStoreNames.contains("mode_stats")) db.deleteObjectStore("mode_stats");
       }
@@ -203,11 +203,6 @@ function dbClear(storeName) {
 // ============================================================================
 // BASE DE DATOS (api)
 // ============================================================================
-
-/**
- * @description ping al server a ver si sigue vivo
- * @returns boolean
- */
 async function isOnline() {
   try {
     await ping()
@@ -222,7 +217,6 @@ async function sessionRoutine() {
 
   if (t != null) {
     userToken = t;
-
     getMe();
     checkAccountState();
   }
@@ -233,8 +227,7 @@ function updateAccountText() {
   modalAccountUsername.textContent = me != undefined ? me.user.username : "n/a";
 }
 
-function offlineRoutine()
-{
+function offlineRoutine() {
   if (isAPIOnline) {
     openLoginBtn.addEventListener("click", () => openLoginModal());
     updateAccountText();
@@ -255,33 +248,19 @@ function offlineRoutine()
 // ============================================================================
 // Gestion de Cuentas (api)
 // ============================================================================
-
 async function submitLogin() {
   let username = loginUsername.value; 
   let password = loginPassword.value; 
 
   try {
-    await login({
-      username: username,
-      password: password
-    })
-
+    await login({ username: username, password: password });
     accountStatus = accountState.LOGGEDIN;
-
     closeLoginModal();
   } catch (e) {
     switch (e) {
-      case 401:
-        // contraseña equivocada
-        await showError("Contraseña Incorrecta");
-        break;
-      case 404:
-        await showError("Usuario no Encontrado");
-        // usuario no existe
-        break;
-      default:
-        showError("No tengo la menor idea de lo que pasó.")
-        break;
+      case 401: await showError("Contraseña Incorrecta"); break;
+      case 404: await showError("Usuario no Encontrado"); break;
+      default: showError("No tengo la menor idea de lo que pasó."); break;
     }
   }
 
@@ -314,25 +293,17 @@ async function submitRegister() {
   let password = registerPassword.value;
   let confPassword = registerPasswordConfirmation.value;
 
-  let credentials = {
-    username: username,
-    password: password
-  }
+  let credentials = { username: username, password: password };
 
   if (confPassword != password) return showError("Las Contraseñas No Coinciden", registerErrorBox);
   if (password.username < 3) return showError("Elige Un Nombre Más Largo", registerErrorBox);
   if (password.length < 6) return showError("Elige Contraseña Más Larga", registerErrorBox);
 
-  let res = await register(credentials)
-
-  console.log(res, res.ok)
-
+  let res = await register(credentials);
   if (res.ok) await login(credentials);
-
 
   await getMe();
   accountStatus = accountState.LOGGEDIN;
-
 
   updateAccountText();
   closeLoginModal();
@@ -340,7 +311,6 @@ async function submitRegister() {
 
 async function showError(text, errorBox = loginErrorBox) {
   errorBox.innerHTML = text;
-
   if (!errorBox.innerHTML || errorBox.innerHTML == "") {
     errorBox.classList.add("hidden")
   } else {
@@ -348,22 +318,22 @@ async function showError(text, errorBox = loginErrorBox) {
   }
 }
 
-
 // ============================================================================
 // GESTIÓN DE RATING Y ESTADÍSTICAS
 // ============================================================================
-function getModeId(mode, length) {
-  return `${mode}_${length}`;
+function getModeId(mode, length, diff) {
+  return `${mode}_${length}_${diff}`;
 }
 
-function createDefaultModeStats(mode, length) {
+function createDefaultModeStats(mode, length, diff) {
   const dist = {};
   for (let i = 1; i <= 12; i++) dist[i] = 0;
   
   return {
-    modeId: getModeId(mode, length),
+    modeId: getModeId(mode, length, diff),
     gameMode: mode,
     wordLength: parseInt(length, 10),
+    difficulty: diff,
     played: 0,
     won: 0,
     currentStreak: 0,
@@ -375,20 +345,18 @@ function createDefaultModeStats(mode, length) {
   };
 }
 
-async function getOrInitModeStats(mode, length) {
-  const modeId = getModeId(mode, length);
+async function getOrInitModeStats(mode, length, diff) {
+  const modeId = getModeId(mode, length, diff);
   let modeData = await dbGet("mode_stats", modeId);
 
   if (isAPIOnline) {
     try {
       modeData = await getModestats(modeId) || modeData;
-    } catch (e) {
-      console.log
-    }
+    } catch (e) { console.log }
   }
 
   if (!modeData) {
-    modeData = createDefaultModeStats(mode, length);
+    modeData = createDefaultModeStats(mode, length, diff);
     await dbPut("mode_stats", modeData);
     putModeStat(modeData, me != undefined ? me.user.username : "err");
   } else if (typeof modeData.rating === "undefined") {
@@ -399,17 +367,13 @@ async function getOrInitModeStats(mode, length) {
 
 async function getGlobalRatingStatus() {
   let localModes = await dbGetAll("mode_stats");
-  let allModes; // se supone que es una const pero lo dejaré mutable para no hacer tremendo termanario [«a» es cierto grok ? si : no;]
+  let allModes;
   let onlineModes;
 
-  if (isAPIOnline && me != undefined) {
+  if (isAPIOnline && me != undefined && typeof getAllModestats !== 'undefined') {
     try {
       onlineModes = (await getAllModestats()).stats.map(x => x.modestat);
-      allModes = [
-        ...new Map(
-          [...localModes, ...onlineModes].map(x => [x.modeId, x])
-        ).values()
-      ]
+      allModes = [...new Map([...localModes, ...onlineModes].map(x => [x.modeId, x])).values()];
     } catch (e) {
       allModes = localModes;
       console.log
@@ -426,12 +390,14 @@ async function getGlobalRatingStatus() {
   let totalWeight = 0;
 
   for (const item of allModes) {
-    if (item.played > 0) {
-      modeStatsMap[item.gameMode] = (modeStatsMap[item.gameMode] || 0) + item.played;
+    if (item.played >= 0) { // Now counting specific Mode ID (Mode + Length + Diff)
+      modeStatsMap[item.modeId] = (modeStatsMap[item.modeId] || 0) + item.played;
 
-      const weight = Math.min(item.played, 10);
-      totalWeightedRating += (item.rating || BASE_RATING) * weight;
-      totalWeight += weight;
+      if(item.played > 0) {
+        const weight = Math.min(item.played, 10);
+        totalWeightedRating += (item.rating || BASE_RATING) * weight;
+        totalWeight += weight;
+      }
     }
   }
 
@@ -442,13 +408,7 @@ async function getGlobalRatingStatus() {
   const isQualified = qualifiedModesCount >= REQUIRED_MODES;
   const score = totalWeight === 0 ? BASE_RATING : Math.round(Math.min(MAX_RATING, Math.max(1, totalWeightedRating / totalWeight)));
 
-  return {
-    isQualified,
-    qualifiedModesCount,
-    requiredModes: REQUIRED_MODES,
-    requiredGames: REQUIRED_GAMES_PER_MODE,
-    score
-  };
+  return { isQualified, qualifiedModesCount, requiredModes: REQUIRED_MODES, requiredGames: REQUIRED_GAMES_PER_MODE, score };
 }
 
 function getRatingTier(rating) {
@@ -477,7 +437,7 @@ async function updateGlobalHeaderBadge() {
 }
 
 async function recordLettersUsedInMode(guess) {
-  const mode = await getOrInitModeStats(currentMode, wordLength);
+  const mode = await getOrInitModeStats(currentMode, wordLength, currentDifficulty);
 
   if (!mode.letterCounts) mode.letterCounts = {};
   for (const char of guess) {
@@ -530,42 +490,23 @@ async function handleTimeOut() {
     openStatsModal(true, false);
   } else if (currentMode === 'marathon') {
     showToast("¡Maratón terminado!");
-    const avgEff = marathonWords > 0 ? Math.round(totalMarathonEfficiency / marathonWords) : 0;
+    const avgEff = marathonWords > 0 ? (totalMarathonEfficiency / marathonWords) : 0.0;
     lastGameEfficiency = avgEff;
     await saveMatchResults(true, 1, avgEff, marathonWords); 
     openStatsModal(true, true);
   }
 }
 
-function computeTimeTrialEfficiency(timeSpent, totalTime, attemptsUsed, wordLength) {
-  const gracePeriod = 60; // 60 segundos de gracia para sacar el 100%
-  let eff = 100;
-  
-  // Caída de eficiencia por tiempo
-  if (timeSpent > gracePeriod) {
-    const overTime = timeSpent - gracePeriod;
-    const maxOverTime = totalTime - gracePeriod;
-    eff = 100 - (overTime / maxOverTime) * 100;
-  }
-  
-  // Penalización masiva por superar el límite de intentos (Palabra + 1)
-  const attemptLimit = wordLength + 1;
-  if (attemptsUsed > attemptLimit) {
-    const extraAttempts = attemptsUsed - attemptLimit;
-    eff -= extraAttempts * 15; // -15% directo de eficiencia por cada intento de sobra
-  }
-  
-  return Math.max(0, Math.min(100, Math.round(eff)));
-}
-
 // ============================================================================
 // EFICIENCIA TÁCTICA Y CÁLCULO DE PUNTUACIÓN
 // ============================================================================
 function computeMatchTacticalEfficiency(isWin, attemptsUsed, guessesHistory) {
-  if (!isWin) return 0;
-  if (attemptsUsed <= 2) return 100;
+  if (!isWin) return 0.0;
+  if (attemptsUsed <= 1) return 1.0;
 
-  let efficiency = 100;
+  let totalViolations = 0;
+  let totalLettersGuessed = 0;
+
   const knownGreens = {};
   const knownYellows = new Map();
   const knownAbsents = new Set();
@@ -574,14 +515,15 @@ function computeMatchTacticalEfficiency(isWin, attemptsUsed, guessesHistory) {
     const { guess, evaluations } = guessesHistory[g];
 
     if (g > 0) {
-      let turnPenalty = 0;
       for (let i = 0; i < guess.length; i++) {
+        totalLettersGuessed++;
         const char = guess[i];
-        if (knownAbsents.has(char)) turnPenalty += 15;
-        if (knownYellows.has(char) && knownYellows.get(char).has(i)) turnPenalty += 15;
-        if (knownGreens[i] && knownGreens[i] !== char) turnPenalty += 20;
+        
+        // Penalizaciones basadas en descartar información ya conocida
+        if (knownAbsents.has(char)) totalViolations += 1;
+        else if (knownYellows.has(char) && knownYellows.get(char).has(i)) totalViolations += 1;
+        else if (knownGreens[i] && knownGreens[i] !== char) totalViolations += 1.5;
       }
-      efficiency -= turnPenalty;
     }
 
     evaluations.forEach((evalStatus, idx) => {
@@ -597,40 +539,63 @@ function computeMatchTacticalEfficiency(isWin, attemptsUsed, guessesHistory) {
     });
   }
 
-  return Math.max(0, Math.min(100, efficiency));
+  if (totalLettersGuessed === 0) return 1.0;
+  let efficiency = 1.0 - (totalViolations / totalLettersGuessed);
+  return Math.max(0.0, Math.min(1.0, efficiency)); // Estrictamente de 0 a 1
+}
+
+function calculateBaseMatchScore(isWin, attemptsUsed, efficiency, timeSpent) {
+  if (!isWin) return 500;
+  
+  const diffMultiplier = DIFFICULTY_SCORE_MULTIPLIER[currentDifficulty] || 1.0;
+  let matchScore = 500;
+
+  if (currentMode === 'time') {
+      let timeFactor = 1.0;
+      if (timeSpent > 20) {
+          const maxOverTime = TIME_LIMITS[currentDifficulty] - 20;
+          const overTime = timeSpent - 20;
+          timeFactor = Math.max(0.0, 1.0 - (overTime / maxOverTime));
+      }
+      
+      let attemptPenalty = 0;
+      const attemptLimit = wordLength + 1;
+      if (attemptsUsed > attemptLimit) {
+          attemptPenalty = (attemptsUsed - attemptLimit) * 0.15; 
+      }
+      
+      let finalFactor = Math.max(0.0, timeFactor - attemptPenalty);
+      let combinedPerformance = (finalFactor * 0.7) + (efficiency * 0.3);
+      
+      matchScore = 500 + (4500 * combinedPerformance * diffMultiplier);
+
+  } else if (currentMode === 'marathon') {
+      // Maratón escala y se normaliza en la acumulación de la partida
+      matchScore = marathonScoreAccumulator; 
+  } else {
+      let attemptsFactor = 1.0;
+      if (maxAttempts > 1) {
+          attemptsFactor = 1.0 - ((attemptsUsed - 1) / (maxAttempts - 1));
+      }
+      
+      let combinedPerformance = (efficiency * 0.6) + (attemptsFactor * 0.4);
+      matchScore = 500 + (4500 * combinedPerformance * diffMultiplier);
+  }
+
+  return Math.max(500, Math.min(MAX_RATING, Math.round(matchScore)));
 }
 
 async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = null) {
   const now = new Date().toISOString();
-  const mode = await getOrInitModeStats(currentMode, wordLength);
+  const mode = await getOrInitModeStats(currentMode, wordLength, currentDifficulty);
   
-  let targetScore;
-  if (isWin) {
-    if (currentMode === 'marathon') {
-      // Maratón usa los puntos acumulados por la racha
-      targetScore = 1500 + marathonScoreAccumulator;
-    } else {
-      // Clásico, Contrarreloj (con su eficiencia de tiempo), Diario
-      targetScore = 1500 + Math.round(3500 * (efficiency / 100));
-    }
-  } else {
-    targetScore = 500;
-  }
-
-  targetScore = Math.min(MAX_RATING, targetScore);
-
-  const BASE_K = 0.15;
-  const diffMultiplier = DIFFICULTY_SCORE_MULTIPLIER[currentDifficulty] || 1.0;
+  let timeSpent = (currentMode === 'time' || currentMode === 'marathon') ? TIME_LIMITS[currentDifficulty] - timeLeft : 0;
+  
+  const targetScore = calculateBaseMatchScore(isWin, attemptsUsed, efficiency, timeSpent);
   const currentRating = mode.rating || BASE_RATING;
-  
-  let K;
-  if (targetScore > currentRating) {
-    K = BASE_K * diffMultiplier;
-  } else {
-    K = BASE_K / diffMultiplier;
-  }
+  const K = 0.2; // Factor K tipo ELO
 
-  const newRating = Math.max(1, Math.min(MAX_RATING, Math.round(currentRating + K * (targetScore - currentRating))));
+  const newRating = Math.max(500, Math.min(MAX_RATING, Math.round(currentRating + K * (targetScore - currentRating))));
 
   lastGameScore = targetScore; 
   mode.rating = newRating;
@@ -641,7 +606,6 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
     mode.won++;
     mode.currentStreak++;
     mode.maxStreak = Math.max(mode.maxStreak, mode.currentStreak);
-    
     let distKey = (currentMode === 'marathon') ? extraWords : attemptsUsed;
     mode.distribution[distKey] = (mode.distribution[distKey] || 0) + 1;
   } else {
@@ -686,11 +650,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initDB();
     await updateGlobalHeaderBadge();
     isAPIOnline = await isOnline();
-
     await sessionRoutine();
-  } catch (e) {
-    console.error("Error IndexedDB:", e);
-  }
+  } catch (e) { console.error("Error IndexedDB:", e); }
+  
   offlineRoutine();
   initListeners();
   initResizeObserver();
@@ -705,39 +667,50 @@ function initListeners() {
   const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
   const headerControls = document.getElementById("header-controls");
   if (mobileMenuToggle) {
-    mobileMenuToggle.addEventListener("click", () => {
-      headerControls.classList.toggle("show");
-    });
+    mobileMenuToggle.addEventListener("click", () => headerControls.classList.toggle("show"));
   }
 
   document.querySelectorAll(".reg-toggle").forEach(button => {
-    button.addEventListener("click", () => { toggleRegister(), openLoginModal() });
+    button.addEventListener("click", () => { toggleRegister(); openLoginModal(); });
   });
 
-  submitRegisterBtn.addEventListener("click", () => { submitRegister() })
-
+  submitRegisterBtn.addEventListener("click", () => submitRegister());
   window.addEventListener("keydown", handlePhysicalKeyboard);
   statsBtn.addEventListener("click", () => openStatsModal(false, false));
   closeLoginBtn.addEventListener("click", () => closeLoginModal());
   submitLoginBtn.addEventListener("click", () => submitLogin());
   logoutBtn.addEventListener("click", () => submitLogout());
-  modalCloseBtn.addEventListener("click", () => {
-    statsModal.classList.add("hidden");
-    modalOpen = true;
-  });
-  playAgainBtn.addEventListener("click", () => {
-    statsModal.classList.add("hidden");
-    startNewGame();
-  });
+  modalCloseBtn.addEventListener("click", () => { statsModal.classList.add("hidden"); modalOpen = true; });
+  playAgainBtn.addEventListener("click", () => { statsModal.classList.add("hidden"); startNewGame(); });
   resetDataBtn.addEventListener("click", handleResetAllData);
   statsModal.addEventListener("click", (e) => {
     if (e.target === statsModal) statsModal.classList.add("hidden");
-
     modalOpen = false;
   });
 
   statsFilterMode.addEventListener("change", async (e) => { statsViewingMode = e.target.value; await updateStatsModalView(); });
   statsFilterLength.addEventListener("change", async (e) => { statsViewingLength = parseInt(e.target.value, 10); await updateStatsModalView(); });
+
+  // Inyectar Filtro de Dificultad Dinámico al Modal
+  if (!document.getElementById("stats-filter-difficulty") && statsFilterLength) {
+      const diffSelect = document.createElement("select");
+      diffSelect.id = "stats-filter-difficulty";
+      diffSelect.className = "stats-filter"; 
+      diffSelect.style.marginLeft = "10px";
+      const diffs = { easy: "Fácil", normal: "Normal", hard: "Difícil", extreme: "Extremo" };
+      for (let [k, v] of Object.entries(diffs)) {
+          let opt = document.createElement("option");
+          opt.value = k;
+          opt.textContent = v;
+          if (k === currentDifficulty) opt.selected = true;
+          diffSelect.appendChild(opt);
+      }
+      statsFilterLength.parentNode.insertBefore(diffSelect, statsFilterLength.nextSibling);
+      diffSelect.addEventListener("change", async (e) => {
+          statsViewingDifficulty = e.target.value;
+          await updateStatsModalView();
+      });
+  }
   
   window.addEventListener("resize", () => { window.requestAnimationFrame(adjustTileSizes); });
 }
@@ -747,18 +720,16 @@ async function handleParameterChange(e, type) {
   const newValue = selectEl.value;
   const oldValue = type === 'mode' ? currentMode : (type === 'length' ? String(wordLength) : currentDifficulty);
 
-  // Si ya hicieron un intento (presionaron Enter) pero no ha acabado
   if (!isGameOver && currentMatchGuesses.length > 0) {
     const confirmLost = await showConfirmDialog("Tienes una partida en curso. Cambiar los parámetros la contará como pérdida. ¿Continuar?");
     if (!confirmLost) {
-      selectEl.value = oldValue; // Revertir opción seleccionada
+      selectEl.value = oldValue;
       return;
     }
     
-    // Penalizar como derrota
     clearInterval(timerInterval);
     if (currentMode === 'marathon') {
-      const avgEff = marathonWords > 0 ? Math.round(totalMarathonEfficiency / marathonWords) : 0;
+      const avgEff = marathonWords > 0 ? (totalMarathonEfficiency / marathonWords) : 0.0;
       await saveMatchResults(true, 1, avgEff, marathonWords);
     } else {
       let eff = computeMatchTacticalEfficiency(false, maxAttempts, matchEvaluationsHistory);
@@ -774,7 +745,6 @@ async function handleParameterChange(e, type) {
   else if (type === 'length') wordLength = parseInt(newValue, 10);
   else if (type === 'diff') currentDifficulty = newValue;
 
-  // Auto cerrar en móvil
   if (window.innerWidth <= 650) {
     const headerControls = document.getElementById("header-controls");
     if(headerControls) headerControls.classList.remove("show");
@@ -838,7 +808,6 @@ function loadWords(length) {
   const answerWords = lists[1] || [];
 
   targetWords = answerWords.length > 0 ? answerWords : guessWords;
-  
   validWordsSet = new Set([...guessWords, ...targetWords].map(w => w.toLowerCase()));
 }
 
@@ -995,7 +964,7 @@ function buildKeyboard() {
 }
 
 function handlePhysicalKeyboard(e) {
-  offlineRoutine(); // meh, haré el chequeo en cada letra por mis cojones
+  offlineRoutine();
   if (isGameOver || isAnimating || e.ctrlKey || e.altKey || e.metaKey || modalOpen) return;
   if (e.key === "Enter") handleInput("Enter");
   else if (e.key === "Backspace") handleInput("Backspace");
@@ -1053,24 +1022,23 @@ async function submitGuess() {
   if (currentGuess === targetWord) {
     bounceRow(currentRow);
     const attemptsUsed = currentRow + 1;
-
-    let eff = 0;
-    if (currentMode === 'time') {
-      const timeSpent = TIME_LIMITS[currentDifficulty] - timeLeft;
-      eff = computeTimeTrialEfficiency(timeSpent, TIME_LIMITS[currentDifficulty], attemptsUsed, wordLength);
-    } else {
-      eff = computeMatchTacticalEfficiency(true, attemptsUsed, matchEvaluationsHistory);
-    }
+    let eff = computeMatchTacticalEfficiency(true, attemptsUsed, matchEvaluationsHistory);
+    lastGameEfficiency = eff;
 
     if (currentMode === 'marathon') {
       marathonWords++;
       marathonStreak++;
       totalMarathonEfficiency += eff;
 
-      const streakMult = [1, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0];
+      const streakMult = [1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0];
       const mult = streakMult[Math.min(marathonStreak - 1, streakMult.length - 1)];
       
-      marathonScoreAccumulator += Math.round(300 * mult * (eff / 100));
+      const diffMultiplier = DIFFICULTY_SCORE_MULTIPLIER[currentDifficulty] || 1.0;
+      const baseWordScore = 400; // Puntos base generados por resolver una palabra 
+      const wordScore = baseWordScore * mult * eff * diffMultiplier;
+
+      marathonScoreAccumulator += Math.round(wordScore);
+      marathonScoreAccumulator = Math.min(MAX_RATING, marathonScoreAccumulator); // Normalizado al Elo tope
 
       marathonCounter.innerHTML = `Palabras: ${marathonWords} <span style="color:#f39c12; font-size:0.8em; font-weight:900;">(🔥x${marathonStreak})</span>`;
       setTimeout(() => startMarathonNextWord(), 1500);
@@ -1081,7 +1049,6 @@ async function submitGuess() {
       localStorage.setItem(`daily_${new Date().toDateString()}_${wordLength}_${currentDifficulty}`, 'true');
     }
 
-    lastGameEfficiency = eff;
     setTimeout(async () => {
       clearInterval(timerInterval);
       await saveMatchResults(true, attemptsUsed, lastGameEfficiency);
@@ -1092,6 +1059,7 @@ async function submitGuess() {
 
   } else if (currentRow + 1 >= maxAttempts && currentMode !== 'time') {
     let eff = computeMatchTacticalEfficiency(false, maxAttempts, matchEvaluationsHistory);
+    lastGameEfficiency = eff;
 
     if (currentMode === 'marathon') {
       marathonStreak = 0;
@@ -1104,7 +1072,6 @@ async function submitGuess() {
       localStorage.setItem(`daily_${new Date().toDateString()}_${wordLength}_${currentDifficulty}`, 'true');
     }
 
-    lastGameEfficiency = eff;
     setTimeout(async () => {
       clearInterval(timerInterval);
       await saveMatchResults(false, maxAttempts, lastGameEfficiency);
@@ -1210,7 +1177,6 @@ function showToast(message) {
 // ============================================================================
 // La mierda de login
 // ============================================================================
-
 async function openLoginModal() {
   if (!isAPIOnline) return;
   checkAccountState();
@@ -1221,20 +1187,18 @@ async function openLoginModal() {
 
 async function closeLoginModal() {
   loginModal.classList.add("hidden");
-
   clearFields();
-
   modalOpen = false;
 }
 
 function clearFields() {
   loginUsername.value = "";
   loginPassword.value = "";
-
   registerUsername.value = "";
   registerPassword.value = "";
   registerPasswordConfirmation.value = "";
 }
+
 async function checkAccountState() {
   switch (accountStatus) {
     case accountState.LOGGEDIN:
@@ -1257,7 +1221,6 @@ async function checkAccountState() {
 
 async function toggleRegister() {
   clearFields();
-
   switch (accountStatus) {
     case accountState.REGISTERING:
       accountStatus = accountState.OFFLINE;
@@ -1278,9 +1241,13 @@ async function openStatsModal(isEndGame = false, isWin = false) {
 
   statsViewingMode = currentMode;
   statsViewingLength = wordLength;
+  statsViewingDifficulty = currentDifficulty;
 
   statsFilterMode.value = statsViewingMode;
   statsFilterLength.value = String(statsViewingLength);
+  
+  const diffFilter = document.getElementById("stats-filter-difficulty");
+  if(diffFilter) diffFilter.value = statsViewingDifficulty;
 
   await updateStatsModalView();
   statsModal.classList.remove("hidden");
@@ -1313,8 +1280,8 @@ function showConfirmDialog(message, showCancel = true) {
 }
 
 async function updateStatsModalView() {
-  const modeStats = await getOrInitModeStats(statsViewingMode, statsViewingLength);
-  const isMatchingActiveGame = (statsViewingMode === currentMode && statsViewingLength === wordLength);
+  const modeStats = await getOrInitModeStats(statsViewingMode, statsViewingLength, statsViewingDifficulty);
+  const isMatchingActiveGame = (statsViewingMode === currentMode && statsViewingLength === wordLength && statsViewingDifficulty === currentDifficulty);
 
   if (isCurrentlyViewingEndGame && isMatchingActiveGame) {
     modalTitle.textContent = isCurrentlyViewingWin ? "¡FELICITACIONES!" : "FIN DEL JUEGO";
@@ -1357,10 +1324,12 @@ async function updateStatsModalView() {
   document.getElementById("stat-win-pct").textContent = `${winRate}%`;
   document.getElementById("stat-current-streak").textContent = modeStats.currentStreak;
   document.getElementById("stat-max-streak").textContent = modeStats.maxStreak;
-  document.getElementById("stat-game-eff").textContent = (isMatchingActiveGame && lastGameEfficiency !== null) ? `${lastGameEfficiency}%` : "—";
+  
+  // Eficiencia visualizada de 0.00 a 1.00
+  document.getElementById("stat-game-eff").textContent = (isMatchingActiveGame && lastGameEfficiency !== null) ? lastGameEfficiency.toFixed(2) : "—";
 
-  const modeAvgEfficiency = modeStats.played > 0 ? Math.round(modeStats.totalEfficiency / modeStats.played) : 0;
-  document.getElementById("stat-total-eff").textContent = `${modeAvgEfficiency}%`;
+  const modeAvgEfficiency = modeStats.played > 0 ? (modeStats.totalEfficiency / modeStats.played).toFixed(2) : "0.00";
+  document.getElementById("stat-total-eff").textContent = modeAvgEfficiency;
 
   renderDistributionChart(modeStats, isMatchingActiveGame);
   renderLettersBarChart(modeStats.letterCounts);
