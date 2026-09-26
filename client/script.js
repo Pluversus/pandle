@@ -109,7 +109,7 @@ const registerPassword = document.getElementById("reg-password");
 const registerPasswordConfirmation = document.getElementById("reg-confirm-password");
 
 const loginErrorBox = document.getElementById("login-error");
-const r = document.getElementById("register-error");
+const registerErrorBox = document.getElementById("register-error");
 
 const submitRegisterBtn = document.getElementById("submit-register-btn");
 const logoutBtn = document.getElementById("logout-btn")
@@ -217,11 +217,28 @@ async function isOnline() {
   }
 }
 
+async function sessionRoutine() {
+  let t = localStorage.userToken;
+
+  if (t) {
+    userToken = t;
+    me = await getMe();
+    accountStatus = accountState.LOGGEDIN;
+
+    checkAccountState();
+  }
+}
+
+function updateAccountText() {
+  accountText.textContent = me != undefined ? me.user.username : "Signin";
+  modalAccountUsername.textContent = me != undefined ? me.user.username : "n/a";
+}
+
 function offlineRoutine()
 {
   if (isAPIOnline) {
     openLoginBtn.addEventListener("click", () => openLoginModal());
-    accountText.textContent = me != undefined ? me.user.username : "SignIn";
+    updateAccountText();
     loginIcon.innerHTML =
       `
       <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
@@ -253,9 +270,6 @@ async function submitLogin() {
     accountStatus = accountState.LOGGEDIN;
 
     closeLoginModal();
-
-    loginUsername.value = "";
-    loginPassword.value = "";
   } catch (e) {
     switch (e) {
       case 401:
@@ -267,31 +281,32 @@ async function submitLogin() {
         // usuario no existe
         break;
       default:
-        console.log("No tengo la menor idea de lo que pasó.")
+        showError("No tengo la menor idea de lo que pasó.")
         break;
     }
   }
 
   try {
     me = await getMe();
-    accountText.textContent = me.user.username;
-    modalAccountUsername.textContent = me.user.username;
   } catch (e) {
-    accountText.textContent = "SignIn";
+    console.log
   }
+
+  updateAccountText();
 }
 
 async function submitLogout() {
   userToken = ""; 
+  localStorage.userToken = null;
   accountStatus = accountState.OFFLINE;
 
   try {
     me = await getMe(); // es vital que esto falle
   } catch (e) {
-    accountText.textContent = "SignIn";
-    me = undefined;
+    console.log
   }
 
+  updateAccountText();
   closeLoginModal();
 }
 
@@ -300,7 +315,21 @@ async function submitRegister() {
   let password = registerPassword.value;
   let confPassword = registerPasswordConfirmation.value;
 
-  if (confPassword != password) showError()
+  if (confPassword != password) showError("Las Contraseñas No Coinciden", registerErrorBox);
+  if (password.username < 3) showError("Elige Un Nombre Más Largo", registerErrorBox);
+  if (password.length < 6) showError("Elige Contraseña Más Larga", registerErrorBox);
+
+  await register({
+    username: username,
+    password: password
+  }).then(async (res) => {
+    if (res.ok) { 
+      await login({
+        username: username,
+        password: password
+      })
+    }
+  })
 }
 
 async function showError(text, errorBox = loginErrorBox) {
@@ -342,7 +371,7 @@ function createDefaultModeStats(mode, length) {
 
 async function getOrInitModeStats(mode, length) {
   const modeId = getModeId(mode, length);
-  let modeData = await dbGet("mode_stats", modeId).then(console.log);
+  let modeData = await dbGet("mode_stats", modeId);
 
   if (isAPIOnline) {
     try {
@@ -382,12 +411,6 @@ async function getGlobalRatingStatus() {
   } else {
     allModes = localModes;
   }
-
-  console.log({
-    modos_locales: localModes,
-    todos_los_modos: allModes,
-    modos_en_linea: onlineModes
-  })
 
   const REQUIRED_MODES = 3;
   const REQUIRED_GAMES_PER_MODE = 5;
@@ -657,6 +680,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initDB();
     await updateGlobalHeaderBadge();
     isAPIOnline = await isOnline();
+
+    await sessionRoutine();
   } catch (e) {
     console.error("Error IndexedDB:", e);
   }
@@ -678,6 +703,12 @@ function initListeners() {
       headerControls.classList.toggle("show");
     });
   }
+
+  document.querySelectorAll(".reg-toggle").forEach(button => {
+    button.addEventListener("click", () => { toggleRegister(), openLoginModal() });
+  });
+
+  submitRegisterBtn.addEventListener("click", () => { submitRegister() })
 
   window.addEventListener("keydown", handlePhysicalKeyboard);
   statsBtn.addEventListener("click", () => openStatsModal(false, false));
@@ -777,7 +808,7 @@ async function handleResetAllData() {
     await Promise.all([
       dbClear("mode_stats"),
       dbClear("game_history"),
-      clearOnlineData() // TODO: this doesn't exist
+      clearOnlineData()
     ]);
     resetVolatileGameData();
     await updateGlobalHeaderBadge();
@@ -1176,7 +1207,29 @@ function showToast(message) {
 
 async function openLoginModal() {
   if (!isAPIOnline) return;
+  checkAccountState();
 
+  loginModal.classList.remove("hidden");
+  modalOpen = true;
+}
+
+async function closeLoginModal() {
+  loginModal.classList.add("hidden");
+
+  clearFields();
+
+  modalOpen = false;
+}
+
+function clearFields() {
+  loginUsername.value = "";
+  loginPassword.value = "";
+
+  registerUsername.value = "";
+  registerPassword.value = "";
+  registerPasswordConfirmation.value = "";
+}
+async function checkAccountState() {
   switch (accountStatus) {
     case accountState.LOGGEDIN:
       accountContent.classList.remove("hidden");
@@ -1188,23 +1241,26 @@ async function openLoginModal() {
       loginContent.classList.add("hidden");
       registerContent.classList.remove("hidden");
       break;
-    default :
+    default:
       accountContent.classList.add("hidden");
       loginContent.classList.remove("hidden");
       registerContent.classList.add("hidden");
       break;
   }
-
-  loginModal.classList.remove("hidden");
-  modalOpen = true;
 }
 
-async function closeLoginModal() {
-  loginModal.classList.add("hidden");
+async function toggleRegister() {
+  clearFields();
 
-  modalOpen = false;
+  switch (accountStatus) {
+    case accountState.REGISTERING:
+      accountStatus = accountState.OFFLINE;
+      break;
+    default:
+      accountStatus = accountState.REGISTERING;
+      break;
+  }
 }
-
 
 // ============================================================================
 // VISOR DE ESTADÍSTICAS
