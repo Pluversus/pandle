@@ -50,9 +50,7 @@ class mongodb {
   }
 
   async updateOneModestat({ modestat: stat, username: username }) {
-    console.log("entro")
     if (!stat) return;
-    console.log("continuo")
     let x = await this.stats.replaceOne(
       {
         username: username,
@@ -66,8 +64,6 @@ class mongodb {
         upsert: true
       }
     );
-
-    console.log(x, "etiqueta")
   }
 
 /**
@@ -76,6 +72,8 @@ class mongodb {
 */
 
   async findOneUser(id) {
+    if (!id) throw "NO_ID_PROVIDED";
+    id = id.toLowerCase();
     let user = await this.users.findOne({ username: id });
     if (!user) throw "USER_NOT_FOUND";
     return user;

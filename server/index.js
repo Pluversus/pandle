@@ -321,7 +321,7 @@ auth.post("/register", async (req, res) => {
   let hash = await bcrypt.hash(password, 10);
 
   await DB.insertOneUser({
-    username,
+    username: username.toLowerCase(),
     hash
   })
 
