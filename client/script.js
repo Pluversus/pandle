@@ -1,4 +1,5 @@
-﻿/**
+﻿(() => {
+/**
  * PANDLE
  */
 
@@ -41,7 +42,8 @@ let maxAttempts = DIFFICULTY_ATTEMPTS[currentDifficulty];
 
 let targetWords = [];
 let validWordsSet = new Set();
-let targetWord = "";
+let _twCipher = [];
+let _twKey = 0;
 let currentRow = 0;
 let currentTile = 0;
 let isGameOver = false;
@@ -127,6 +129,20 @@ const headerTierName = document.getElementById("header-tier-name");
 const gameInfoPanel = document.getElementById("game-info-panel");
 const timerDisplay = document.getElementById("timer-display");
 const marathonCounter = document.getElementById("marathon-counter");
+
+function setTargetWord(word) {
+  _twKey = Math.floor(Math.random() * 200) + 33;
+  _twCipher = Array.from(word).map((char, index) => 
+    (char.charCodeAt(0) ^ _twKey) + ((index + 1) * 11)
+  );
+}
+
+function getTargetWord() {
+  if (!_twCipher || _twCipher.length === 0) return "";
+  return _twCipher
+    .map((code, index) => String.fromCharCode((code - ((index + 1) * 11)) ^ _twKey))
+    .join("");
+}
 
 // ============================================================================
 // BASE DE DATOS (INDEXEDDB)
@@ -617,7 +633,7 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
     wordLength,
     difficulty: currentDifficulty,
     gameMode: currentMode,
-    targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : targetWord,
+    targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : getTargetWord(),
     guesses: [...currentMatchGuesses],
     isWin,
     attemptsUsed: isWin ? attemptsUsed : null,
@@ -816,9 +832,9 @@ function startNewGame() {
       buildKeyboard();
       return;
     }
-    targetWord = targetWords[getDailyWordIndex(targetWords.length)].toLowerCase();
+    setTargetWord(targetWords[getDailyWordIndex(targetWords.length)].toLowerCase());
   } else {
-    targetWord = targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase();
+    setTargetWord(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
   }
 
   if (currentMode === 'time' || currentMode === 'marathon') {
@@ -850,7 +866,7 @@ function startMarathonNextWord() {
   currentGuess = "";
   currentMatchGuesses = [];
   matchEvaluationsHistory = [];
-  targetWord = targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase();
+  setTargetWord(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
   buildBoard();
   adjustTileSizes();
   buildKeyboard();
@@ -985,7 +1001,7 @@ async function submitGuess() {
   currentMatchGuesses.push(currentGuess);
   await recordLettersUsedInMode(currentGuess);
 
-  const evaluations = evaluateGuess(currentGuess, targetWord);
+  const evaluations = evaluateGuess(currentGuess, getTargetWord());
   matchEvaluationsHistory.push({ guess: currentGuess, evaluations });
 
   for (let i = 0; i < wordLength; i++) {
@@ -994,7 +1010,7 @@ async function submitGuess() {
     updateKeyboardKey(currentGuess[i], evaluations[i]);
   }
 
-  if (currentGuess === targetWord) {
+  if (currentGuess === getTargetWord()) {
     bounceRow(currentRow);
     const attemptsUsed = currentRow + 1;
     let eff = computeMatchTacticalEfficiency(true, attemptsUsed, matchEvaluationsHistory);
@@ -1257,8 +1273,8 @@ async function updateStatsModalView() {
   if (isCurrentlyViewingEndGame && isMatchingActiveGame) {
     modalTitle.textContent = isCurrentlyViewingWin ? "¡FELICITACIONES!" : "FIN DEL JUEGO";
     secretWordReveal.innerHTML = (currentMode === 'marathon') 
-      ? `Has conseguido: <span>${marathonWords} PALABRAS</span>`
-      : `La palabra era: <span>${targetWord.toUpperCase()}</span>`;
+    ? `Has conseguido: <span>${marathonWords} PALABRAS</span>`
+    : `La palabra era: <span>${getTargetWord().toUpperCase()}</span>`;
     secretWordReveal.classList.remove("hidden");
   } else {
     modalTitle.textContent = "ESTADÍSTICAS";
@@ -1402,3 +1418,4 @@ function renderLettersBarChart(letterCounts) {
     container.appendChild(row);
   });
 }
+})();
