@@ -1,17 +1,4 @@
-﻿// variables pal online
-let isAPIOnline = false;
-
-let accountState = {
-  OFFLINE: 0,
-  LOGGEDIN: 1,
-  REGISTERING: 2
-}
-
-let accountStatus = accountState.OFFLINE;
-let me = undefined;
-
-(() => {
-/**
+﻿/**
  * PANDLE
  */
 
@@ -82,6 +69,18 @@ let statsViewingLength = 5;
 let isCurrentlyViewingEndGame = false;
 let isCurrentlyViewingWin = false;
 
+// variables pal online
+let isAPIOnline = false;
+
+let accountState = {
+  OFFLINE: 0,
+  LOGGEDIN: 1,
+  REGISTERING: 2
+}
+
+let accountStatus = accountState.OFFLINE;
+let me = undefined;
+
 // Elementos del DOM
 const boardElement = document.getElementById("board");
 const keyboardElement = document.getElementById("keyboard");
@@ -130,14 +129,14 @@ const gameInfoPanel = document.getElementById("game-info-panel");
 const timerDisplay = document.getElementById("timer-display");
 const marathonCounter = document.getElementById("marathon-counter");
 
-function setTargetWord(word) {
+function e4759yg985gbv2qu34(word) {
   _twKey = Math.floor(Math.random() * 200) + 33;
   _twCipher = Array.from(word).map((char, index) => 
     (char.charCodeAt(0) ^ _twKey) + ((index + 1) * 11)
   );
 }
 
-function getTargetWord() {
+function fjv98e5r34yt34958yu() {
   if (!_twCipher || _twCipher.length === 0) return "";
   return _twCipher
     .map((code, index) => String.fromCharCode((code - ((index + 1) * 11)) ^ _twKey))
@@ -633,7 +632,7 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
     wordLength,
     difficulty: currentDifficulty,
     gameMode: currentMode,
-    targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : getTargetWord(),
+    targetWord: (currentMode === 'marathon') ? `[${extraWords} palabras]` : fjv98e5r34yt34958yu(),
     guesses: [...currentMatchGuesses],
     isWin,
     attemptsUsed: isWin ? attemptsUsed : null,
@@ -832,9 +831,9 @@ function startNewGame() {
       buildKeyboard();
       return;
     }
-    setTargetWord(targetWords[getDailyWordIndex(targetWords.length)].toLowerCase());
+    e4759yg985gbv2qu34(targetWords[getDailyWordIndex(targetWords.length)].toLowerCase());
   } else {
-    setTargetWord(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
+    e4759yg985gbv2qu34(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
   }
 
   if (currentMode === 'time' || currentMode === 'marathon') {
@@ -866,7 +865,7 @@ function startMarathonNextWord() {
   currentGuess = "";
   currentMatchGuesses = [];
   matchEvaluationsHistory = [];
-  setTargetWord(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
+  e4759yg985gbv2qu34(targetWords[Math.floor(Math.random() * targetWords.length)].toLowerCase());
   buildBoard();
   adjustTileSizes();
   buildKeyboard();
@@ -1001,7 +1000,7 @@ async function submitGuess() {
   currentMatchGuesses.push(currentGuess);
   await recordLettersUsedInMode(currentGuess);
 
-  const evaluations = evaluateGuess(currentGuess, getTargetWord());
+  const evaluations = evaluateGuess(currentGuess, fjv98e5r34yt34958yu());
   matchEvaluationsHistory.push({ guess: currentGuess, evaluations });
 
   for (let i = 0; i < wordLength; i++) {
@@ -1010,7 +1009,7 @@ async function submitGuess() {
     updateKeyboardKey(currentGuess[i], evaluations[i]);
   }
 
-  if (currentGuess === getTargetWord()) {
+  if (currentGuess === fjv98e5r34yt34958yu()) {
     bounceRow(currentRow);
     const attemptsUsed = currentRow + 1;
     let eff = computeMatchTacticalEfficiency(true, attemptsUsed, matchEvaluationsHistory);
@@ -1274,7 +1273,7 @@ async function updateStatsModalView() {
     modalTitle.textContent = isCurrentlyViewingWin ? "¡FELICITACIONES!" : "FIN DEL JUEGO";
     secretWordReveal.innerHTML = (currentMode === 'marathon') 
     ? `Has conseguido: <span>${marathonWords} PALABRAS</span>`
-    : `La palabra era: <span>${getTargetWord().toUpperCase()}</span>`;
+    : `La palabra era: <span>${fjv98e5r34yt34958yu().toUpperCase()}</span>`;
     secretWordReveal.classList.remove("hidden");
   } else {
     modalTitle.textContent = "ESTADÍSTICAS";
@@ -1418,4 +1417,3 @@ function renderLettersBarChart(letterCounts) {
     container.appendChild(row);
   });
 }
-})();
