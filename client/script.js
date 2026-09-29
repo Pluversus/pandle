@@ -1,4 +1,16 @@
-﻿(() => {
+﻿// variables pal online
+let isAPIOnline = false;
+
+let accountState = {
+  OFFLINE: 0,
+  LOGGEDIN: 1,
+  REGISTERING: 2
+}
+
+let accountStatus = accountState.OFFLINE;
+let me = undefined;
+
+(() => {
 /**
  * PANDLE
  */
@@ -69,18 +81,6 @@ let statsViewingMode = "classic";
 let statsViewingLength = 5;
 let isCurrentlyViewingEndGame = false;
 let isCurrentlyViewingWin = false;
-
-// variables pal online
-let isAPIOnline = false;
-
-let accountState = {
-  OFFLINE: 0,
-  LOGGEDIN: 1,
-  REGISTERING: 2
-}
-
-let accountStatus = accountState.OFFLINE;
-let me = undefined;
 
 // Elementos del DOM
 const boardElement = document.getElementById("board");
