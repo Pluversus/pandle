@@ -10,6 +10,8 @@ const {
 
 DB = new mongodb();
 
+console.log(process.argv.slice(2))
+
 try {
   DB.connect();
   console.log("nos conectamos :D")
