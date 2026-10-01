@@ -8,9 +8,12 @@ const {
     mongodb
 } = require("./dbservice");
 
-DB = new mongodb();
+const args = process.argv.slice(2);
+const testing = args[0] == "--testing";
+const port = testing ? 3030 : 3000;
 
-console.log(process.argv.slice(2))
+DB = new mongodb(testing);
+
 
 try {
   DB.connect();
@@ -21,7 +24,7 @@ catch (e) {
 }
 
 //en caso de que quiera correr solo local
-if (true)
+if (!testing)
 {
   const process = spawn("server.bat", [], {
       shell: true
@@ -65,7 +68,6 @@ app.use("/users", users);
 app.use("/results", results);
 app.use("/modestats", modestats);
 app.use("/auth", auth);
-users.use(authenticate);
 
 // endpoints, un solo archivo hasta la muerte
 
@@ -336,8 +338,8 @@ auth.post("/register", async (req, res) => {
 
 // ahora te escucha
 
-app.listen(3000, () => {
-  console.log("La api se está corriendo en tu puerto 3000");
+app.listen(port, () => {
+  console.log("La api se está corriendo en tu puerto: ", port);
 })
 
 /**

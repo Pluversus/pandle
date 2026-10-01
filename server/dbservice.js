@@ -1,24 +1,52 @@
 ﻿const { MongoClient } = require("mongodb");
-const { mongoURI } = require("./secret")
+const { mongoURI } = require("./secret");
+const { MongoMemoryServer } = require("mongodb-memory-server");
 
 class mongodb {
   client;
   db;
   users;
 
-  constructor() {
-    try {
-      this.client = new MongoClient(mongoURI);
-    } finally {
-      this.db = this.client.db("pandle");
-      this.users = this.db.collection('users');
-      this.results = this.db.collection('results');
-      this.stats = this.db.collection('modestats');
+  constructor(testing = false) {
+    this.testing = testing;
+    
+    process.on("SIGINT", async () => {
+      await this.client.close();
+      await this.mongo.stop();
+      process.exit(0);
+    });
+  }
+
+  async init() {
+    if (!this.testing) {
+      try {
+        this.client = new MongoClient(mongoURI);
+        this.db = this.client.db("pandle");
+        this.users = this.db.collection('users');
+        this.results = this.db.collection('results');
+        this.stats = this.db.collection('modestats');
+      } catch(e) {
+        console.log
+      }
+    } else {
+      try {
+        this.mongo = await MongoMemoryServer.create();
+        this.client = new MongoClient(this.mongo.getUri());
+
+        this.db = this.client.db("pandle");
+        this.users = this.db.collection('users');
+        this.results = this.db.collection('results');
+        this.stats = this.db.collection('modestats');
+      } catch (e) {
+        console.log
+      }
     }
   }
 
   async connect() {
+    await this.init();
     await this.client.connect();
+    console.log(this.client.s.url)
     await this.db.command({ ping: 1 });
     return 0;
   }
