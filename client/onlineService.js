@@ -1,4 +1,10 @@
-﻿const endpoint = "https://api.panchessco.space/";
+﻿const isLocal =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "::1";
+
+const endpoint = isLocal ? "http://localhost:3000/" : "https://api.panchessco.space/";
+
 const userEndpoint = endpoint + "users/";
 const resultsEndpoint = endpoint + "results/";
 const modestatsEndpoint = endpoint + "modestats/";
