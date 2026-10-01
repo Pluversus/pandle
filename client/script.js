@@ -231,20 +231,21 @@ async function sessionRoutine() {
 
   if (t != null) {
     userToken = t;
-    getMe();
+    accountStatus = accountState.LOGGEDIN;
+    await getMe();
     checkAccountState();
+    updateAccountText();
   }
 }
 
 function updateAccountText() {
-  accountText.textContent = me != undefined ? me.user.username : "Signin";
+  accountText.textContent = me != undefined ? me.user.username : "Sign In";
   modalAccountUsername.textContent = me != undefined ? me.user.username : "n/a";
 }
 
 function offlineRoutine() {
   if (isAPIOnline) {
     openLoginBtn.addEventListener("click", () => openLoginModal());
-    updateAccountText();
     loginIcon.innerHTML =
       `
       <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
@@ -656,6 +657,8 @@ async function saveMatchResults(isWin, attemptsUsed, efficiency, extraWords = nu
 // ============================================================================
 // CONTROL DEL JUEGO
 // ============================================================================
+
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     await initDB();
